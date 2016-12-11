@@ -1,6 +1,6 @@
 from flask import Flask, request, send_from_directory
 # from flask.ext.sqlalchemy import SQLAlchemy
-from flask.ext.pymongo import PyMongo
+from flask.ext.pymongo import PyMongo, MongoClient
 
 import json
 import pprint
@@ -8,7 +8,13 @@ import os
 import datetime
 
 app = Flask(__name__, static_url_path='/', static_folder='')
-mongo = PyMongo(app)
+
+mongo_uri = os.environ('MONGODB_URI') or None
+mongo = None
+if (mongo_uri):
+    mongo = MongoClient(mongo_uri)
+else:
+    mongo = PyMongo(app)
 # app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://localhost/fingerprinting"
 # app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # app.config['CSRF_ENABLED'] = True
