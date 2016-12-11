@@ -2,6 +2,7 @@ from flask import Flask, request, send_from_directory
 # from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext.pymongo import PyMongo, MongoClient
 
+import sys
 import json
 import pprint
 import os
@@ -16,13 +17,14 @@ mongo = None
 # if we are running in a heroku environment, or have a shared db, connect to that
 if (mongo_uri): 
     assert db_name is not None # I'll eat a sock if this throws an error
-    mongo = MongoClient(mongo_uri)[db_name]
+    db = MongoClient(mongo_uri)[db_name]
 # else try to connect to local mongo instance
 else: 
     db = PyMongo(app).db
 
 @app.route('/', methods=['GET'])
 def index():
+    sys.stdout.flush() # debugging heroku issue where stdout is buffered
     return app.send_static_file('index.html')
 
 @app.route('/js/<path:path>', methods=['GET'])
