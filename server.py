@@ -1,6 +1,7 @@
 from flask import Flask, request, send_from_directory, make_response
 from flask.ext.pymongo import PyMongo, MongoClient
 from bson.objectid import ObjectId # solve bug: string ID =/= object ID
+from bson import json_util
 
 import sys
 import json
@@ -51,12 +52,17 @@ def store_fingerprint():
         else:
             # found a user
             user_entry = user_cursor[0]
+            # track fingerprint changes
+            if (user_cursor[0]['fingerprint'] != fingerprint):
+                log_activity(user_id, 'Fingerprint changed from ' + user_cursor[0]['fingerprint'] + ' to ' + fingerprint)
+                change_fingerprint(user_id, 
+                    fingerprint, json.dumps(content['components']), 
+                    user_cursor[0]['fingerprint'], user_cursor[0]['components'])
+            log_activity(user_id, 'Visited the page again')
             return json.dumps({'success':True}), 304, {'ContentType':'application/json'}
 
     user_cursor = db.users.find({'fingerprint':fingerprint})
     n_records = user_cursor.count()
-
-    external_function()
 
     if n_records:
         if (n_records > 1):
@@ -67,7 +73,9 @@ def store_fingerprint():
             # user is trying to dodge system by deleting their cookie, but we
             # found them! (or it could be a different user with the same fingerprint
             # but we will ignore that for now)
-            user_id = user_cursor[0]['_id']
+            user_id = user_cursor[0]['_id'] # reset user id to make new cookie
+            log_activity(user_id, 'Tried to dodge tracking by unsetting cookie')
+            log_activity(user_id, 'Visited the page again')
             print 'Found matching fingerprint for this user %s' % fingerprint
     else:
         print 'New fingerprint %s' % fingerprint
@@ -80,6 +88,7 @@ def store_fingerprint():
                     'activity': 'First encounter', 
                     'time': datetime.datetime.utcnow()
                     }],
+                'old_fingerprints': [],
                 'created_at':datetime.datetime.utcnow(),
                 'updated_at':datetime.datetime.utcnow()
         }
@@ -91,6 +100,52 @@ def store_fingerprint():
     resp.set_cookie('uid', str(user_id))
     return resp
 
+@app.route('/view_fingerprint/<fingerprint>', methods=['GET'])
+def view_fingerprint_data(fingerprint):
+    user_id = request.cookies.get('uid')
+    user = db.users.find({'fingerprint':fingerprint})
+
+    if user_id:
+        viewing_user = db.users.find({'_id': ObjectId(user_id)})
+        if viewing_user.count():
+            log_activity(user_id, 'Viewed fingerprint data for ' + fingerprint)
+            
+
+    if user.count():
+        # assuming no multiples
+        # http://stackoverflow.com/questions/11875770/how-to-overcome-datetime-datetime-not-json-serializable-in-python
+        resp = make_response(json.dumps(user[0], default=json_util.default), 200, {'ContentType':'application/json'})
+    else:
+        resp = make_response(json.dumps({'error':'Not found'}), 404, {'ContentType':'application/json'})
+
+    return resp
+
+def log_activity(user_id, activity):
+    db.users.update(
+        {'_id': ObjectId(user_id)},
+        {'$addToSet': {
+            'activity_log': {
+                'activity': activity,
+                'time': datetime.datetime.utcnow()
+                }
+            }
+        })
+
+def change_fingerprint(user_id, fingerprint, components, old_fingerprint, old_components):
+    db.users.update(
+        {'_id': ObjectId(user_id)},
+        {'$set': {
+            'fingerprint': fingerprint,
+            'components': components
+            },
+        '$addToSet': {
+            'old_fingerprints': {
+                'fingerprint': old_fingerprint,
+                'components': old_components,
+                'changed_at': datetime.datetime.utcnow()
+                }
+            }
+        })
 
 def external_function():
     print 'test'
