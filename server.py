@@ -1,6 +1,6 @@
-from flask import Flask, request, send_from_directory
-# from flask.ext.sqlalchemy import SQLAlchemy
+from flask import Flask, request, send_from_directory, make_response
 from flask.ext.pymongo import PyMongo, MongoClient
+from bson.objectid import ObjectId # solve bug: string ID =/= object ID
 
 import sys
 import json
@@ -16,11 +16,13 @@ db = None
 
 # if we are running in a heroku environment, or have a shared db, connect to that
 if (mongo_uri): 
-    assert db_name is not None # I'll eat a sock if this throws an error
-    db = MongoClient(mongo_uri)[db_name]
+    with app.app_context():
+        assert db_name is not None # I'll eat a sock if this throws an error
+        db = MongoClient(mongo_uri)[db_name]
 # else try to connect to local mongo instance
 else: 
-    db = PyMongo(app).db
+    with app.app_context():
+        db = PyMongo(app).db
 
 @app.route('/', methods=['GET'])
 def index():
@@ -33,32 +35,65 @@ def send_js(path):
 
 @app.route('/store_fingerprint', methods=['POST'])
 def store_fingerprint():
+    user_id = request.cookies.get('uid')
+
     content = request.get_json(silent=True, force=True)
     fingerprint = content['fingerprint']
-    user = db.users.find({'fingerprint':fingerprint})
-    n_records = user.count()
-    print n_records
+
+    user_cursor = None
+    # user has been assigned a tracking cookie so we can trace changes
+    # in their fingerprint
+    if (user_id):
+        user_cursor = db.users.find({'_id': ObjectId(user_id)})
+        if user_cursor.count() == 0:
+            # user entry is bad, this is an attempt at hijacking the cookie
+            return json.dumps({'error':True}), 400, {'ContentType':'application/json'}
+        else:
+            # found a user
+            user_entry = user_cursor[0]
+            return json.dumps({'success':True}), 304, {'ContentType':'application/json'}
+
+    user_cursor = db.users.find({'fingerprint':fingerprint})
+    n_records = user_cursor.count()
+
+    external_function()
+
     if n_records:
         if (n_records > 1):
             print 'Multiple users with this fingerprint %s' % fingerprint
+            # no idea how to handle this yet, so return "Not Implemented"
+            return json.dumps({'success':False,'error':False}), 501, {'ContentType':'application/json'}
         else:
+            # user is trying to dodge system by deleting their cookie, but we
+            # found them! (or it could be a different user with the same fingerprint
+            # but we will ignore that for now)
+            user_id = user_cursor[0]['_id']
             print 'Found matching fingerprint for this user %s' % fingerprint
     else:
         print 'New fingerprint %s' % fingerprint
 
         to_insert = {
+                # id is implicit, assuming unique fingerprints for everyone
                 'fingerprint':fingerprint,
                 'components':json.dumps(content['components']),
+                'activity_log':[{
+                    'activity': 'First encounter', 
+                    'time': datetime.datetime.utcnow()
+                    }],
                 'created_at':datetime.datetime.utcnow(),
                 'updated_at':datetime.datetime.utcnow()
         }
 
-        returned_id = db.users.insert_one(to_insert)
+        user_id = db.users.insert_one(to_insert)
 
-    # print content
+    print user_id
+    resp = make_response(json.dumps({'success':True}), 200, {'ContentType':'application/json'})
+    resp.set_cookie('uid', str(user_id))
+    return resp
 
 
-    return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+def external_function():
+    print 'test'
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
