@@ -20,7 +20,6 @@ Flask-Script==2.0.5
 Flask-SQLAlchemy==2.1
 functools32==3.2.3.post2
 gunicorn==19.6.0
-gyp==0.1
 html5lib==0.999
 ipykernel==4.5.2
 ipython==5.1.0
