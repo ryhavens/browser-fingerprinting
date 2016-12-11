@@ -10,14 +10,16 @@ import datetime
 app = Flask(__name__, static_url_path='/', static_folder='')
 
 mongo_uri = os.environ['MONGODB_URI'] or None
+db_name = os.environ['MONGODB_NAME'] or None
 mongo = None
 
 # if we are running in a heroku environment, or have a shared db, connect to that
 if (mongo_uri): 
-    mongo = MongoClient(mongo_uri)
+    assert db_name is not None # I'll eat a sock if this throws an error
+    mongo = MongoClient(mongo_uri)[db_name]
 # else try to connect to local mongo instance
 else: 
-    mongo = PyMongo(app)
+    db = PyMongo(app).db
 
 @app.route('/', methods=['GET'])
 def index():
@@ -31,7 +33,7 @@ def send_js(path):
 def store_fingerprint():
     content = request.get_json(silent=True, force=True)
     fingerprint = content['fingerprint']
-    user = mongo.db.users.find({'fingerprint':fingerprint})
+    user = db.users.find({'fingerprint':fingerprint})
     n_records = user.count()
     print n_records
     if n_records:
@@ -49,7 +51,7 @@ def store_fingerprint():
                 'updated_at':datetime.datetime.utcnow()
         }
 
-        returned_id = mongo.db.users.insert_one(to_insert)
+        returned_id = db.users.insert_one(to_insert)
 
     # print content
 
