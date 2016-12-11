@@ -10,9 +10,9 @@ import datetime
 
 app = Flask(__name__, static_url_path='/', static_folder='')
 
-mongo_uri = os.environ['MONGODB_URI'] or None
-db_name = os.environ['MONGODB_NAME'] or None
-mongo = None
+mongo_uri = os.getenv('MONGODB_URI')
+db_name = os.getenv('MONGODB_NAME')
+db = None
 
 # if we are running in a heroku environment, or have a shared db, connect to that
 if (mongo_uri): 
