@@ -9,17 +9,15 @@ import datetime
 
 app = Flask(__name__, static_url_path='/', static_folder='')
 
-mongo_uri = os.environ('MONGODB_URI') or None
+mongo_uri = os.environ['MONGODB_URI'] or None
 mongo = None
-if (mongo_uri):
+
+# if we are running in a heroku environment, or have a shared db, connect to that
+if (mongo_uri): 
     mongo = MongoClient(mongo_uri)
-else:
+# else try to connect to local mongo instance
+else: 
     mongo = PyMongo(app)
-# app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://localhost/fingerprinting"
-# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# app.config['CSRF_ENABLED'] = True
-# app.config['SECRET_KEY'] = "mingchow" # todo load from environ?
-# db = SQLAlchemy(app)
 
 @app.route('/', methods=['GET'])
 def index():
