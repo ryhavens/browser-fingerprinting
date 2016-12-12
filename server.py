@@ -37,10 +37,11 @@ def send_js(path):
 @app.route('/store_fingerprint', methods=['POST'])
 def store_fingerprint():
     user_id = request.cookies.get('uid')
-    try:
-        user_id = ObjectId(user_id) # convert uid to objectid
-    except:
-        user_id = None
+    if (user_id): # ObjectId of None gets converted into an actual ID... lol
+        try:
+            user_id = ObjectId(user_id) # convert uid to objectid
+        except:
+            user_id = None
 
     content = request.get_json(silent=True, force=True)
 
@@ -58,7 +59,7 @@ def store_fingerprint():
         user_cursor = db.users.find({'_id': user_id})
         if user_cursor.count() == 0:
             # user entry is bad, this is an attempt at hijacking the cookie
-            return json.dumps({'error':True, 'id':user_id}), 400, {'ContentType':'application/json'}
+            return json.dumps({'error':True, 'id':str(user_id)}), 400, {'ContentType':'application/json'}
         else:
             # found a user
             user_entry = user_cursor[0]
@@ -123,10 +124,11 @@ def store_fingerprint():
 @app.route('/view_fingerprint/<fingerprint>', methods=['GET'])
 def view_fingerprint_data(fingerprint):
     user_id = request.cookies.get('uid')
-    try:
-        user_id = ObjectId(user_id) # convert uid to objectid
-    except:
-        user_id = None
+    if (user_id): # ObjectId of None gets converted into an actual ID... lol
+        try:
+            user_id = ObjectId(user_id) # convert uid to objectid
+        except:
+            user_id = None
 
     user = db.users.find({'fingerprint':fingerprint})
 

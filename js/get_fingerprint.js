@@ -125,6 +125,6 @@ function getFingerprintData(fingerprint, callback)
                               'fingerprint': GLOBALS['fingerprint'],
                           }),
         success: function(data) { callback(data); },
-        error: function(err) { alert("Sorry, something went wrong."); for (var key in data) { alert(key + " " + data[key]); } },
+        error: function(err) { alert("Sorry, something went wrong."); },
     });
 }
