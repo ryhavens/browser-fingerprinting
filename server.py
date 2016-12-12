@@ -53,7 +53,7 @@ def store_fingerprint():
         user_cursor = db.users.find({'_id': ObjectId(user_id)})
         if user_cursor.count() == 0:
             # user entry is bad, this is an attempt at hijacking the cookie
-            return json.dumps({'error':True}), 400, {'ContentType':'application/json'}
+            return json.dumps({'error':True, 'id':user_id}), 400, {'ContentType':'application/json'}
         else:
             # found a user
             user_entry = user_cursor[0]

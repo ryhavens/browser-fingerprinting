@@ -123,10 +123,8 @@ function getFingerprintData(fingerprint, callback)
         data: JSON.stringify({
                               'action': 'view',
                               'fingerprint': GLOBALS['fingerprint'],
-                              'components': GLOBALS['components'],
-                              'activity': 'Clicked on a link to view their data'
                           }),
         success: function(data) { callback(data); },
-        error: function(err) { alert("Sorry, something went wrong."); },
+        error: function(err) { alert("Sorry, something went wrong."); for (var key in data) { alert(key + " " + data[key]); } },
     });
 }
