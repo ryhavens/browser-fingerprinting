@@ -39,6 +39,11 @@ def store_fingerprint():
     user_id = request.cookies.get('uid')
 
     content = request.get_json(silent=True, force=True)
+
+    # required fields
+    if ('fingerprint' not in content or 'components' not in content or 'action' not in content):
+        return json.dumps({'error':True}), 400, {'ContentType':'application/json'}
+
     fingerprint = content['fingerprint']
 
     user_cursor = None
@@ -58,8 +63,13 @@ def store_fingerprint():
                 change_fingerprint(user_id, 
                     fingerprint, json.dumps(content['components']), 
                     user_cursor[0]['fingerprint'], user_cursor[0]['components'])
-            log_activity(user_id, 'Visited the page again')
-            return json.dumps({'success':True}), 304, {'ContentType':'application/json'}
+
+            if (content['action'] == 'check'):
+                log_activity(user_id, 'Visited the page again')
+            elif (content['action'] == 'activity'):
+                log_activity(user_id, content['activity'])
+
+            return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
     user_cursor = db.users.find({'fingerprint':fingerprint})
     n_records = user_cursor.count()
@@ -75,7 +85,12 @@ def store_fingerprint():
             # but we will ignore that for now)
             user_id = user_cursor[0]['_id'] # reset user id to make new cookie
             log_activity(user_id, 'Tried to dodge tracking by unsetting cookie')
-            log_activity(user_id, 'Visited the page again')
+
+            if (content['action'] == 'check'):
+                log_activity(user_id, 'Visited the page again')
+            elif (content['action'] == 'activity'):
+                log_activity(user_id, content['activity'])
+
             print 'Found matching fingerprint for this user %s' % fingerprint
     else:
         print 'New fingerprint %s' % fingerprint
@@ -123,7 +138,10 @@ def view_fingerprint_data(fingerprint):
 def log_activity(user_id, activity):
     db.users.update(
         {'_id': ObjectId(user_id)},
-        {'$addToSet': {
+        {'$set': {
+            'updated_at':datetime.datetime.utcnow()
+            },
+        '$addToSet': {
             'activity_log': {
                 'activity': activity,
                 'time': datetime.datetime.utcnow()
@@ -146,9 +164,6 @@ def change_fingerprint(user_id, fingerprint, components, old_fingerprint, old_co
                 }
             }
         })
-
-def external_function():
-    print 'test'
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
