@@ -37,6 +37,10 @@ def send_js(path):
 @app.route('/store_fingerprint', methods=['POST'])
 def store_fingerprint():
     user_id = request.cookies.get('uid')
+    try:
+        user_id = ObjectId(user_id) # convert uid to objectid
+    except:
+        user_id = None
 
     content = request.get_json(silent=True, force=True)
 
@@ -49,8 +53,9 @@ def store_fingerprint():
     user_cursor = None
     # user has been assigned a tracking cookie so we can trace changes
     # in their fingerprint
+
     if (user_id):
-        user_cursor = db.users.find({'_id': ObjectId(user_id)})
+        user_cursor = db.users.find({'_id': user_id})
         if user_cursor.count() == 0:
             # user entry is bad, this is an attempt at hijacking the cookie
             return json.dumps({'error':True, 'id':user_id}), 400, {'ContentType':'application/json'}
@@ -108,7 +113,7 @@ def store_fingerprint():
                 'updated_at':datetime.datetime.utcnow()
         }
 
-        user_id = db.users.insert_one(to_insert)
+        user_id = db.users.insert(to_insert)
 
     print user_id
     resp = make_response(json.dumps({'success':True}), 200, {'ContentType':'application/json'})
@@ -118,10 +123,15 @@ def store_fingerprint():
 @app.route('/view_fingerprint/<fingerprint>', methods=['GET'])
 def view_fingerprint_data(fingerprint):
     user_id = request.cookies.get('uid')
+    try:
+        user_id = ObjectId(user_id) # convert uid to objectid
+    except:
+        user_id = None
+
     user = db.users.find({'fingerprint':fingerprint})
 
     if user_id:
-        viewing_user = db.users.find({'_id': ObjectId(user_id)})
+        viewing_user = db.users.find({'_id': user_id})
         if viewing_user.count():
             log_activity(user_id, 'Viewed fingerprint data for ' + fingerprint)
             
@@ -137,7 +147,7 @@ def view_fingerprint_data(fingerprint):
 
 def log_activity(user_id, activity):
     db.users.update(
-        {'_id': ObjectId(user_id)},
+        {'_id': user_id},
         {'$set': {
             'updated_at':datetime.datetime.utcnow()
             },
@@ -151,7 +161,7 @@ def log_activity(user_id, activity):
 
 def change_fingerprint(user_id, fingerprint, components, old_fingerprint, old_components):
     db.users.update(
-        {'_id': ObjectId(user_id)},
+        {'_id': user_id},
         {'$set': {
             'fingerprint': fingerprint,
             'components': components
